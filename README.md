@@ -22,23 +22,13 @@ Because `cd ~/work/clients/acme/2026/api-rewrite` ten times a day is the kind of
 ```sh
 brew tap JasGH/gotodir
 brew install gotodir
+gotodir init                 # wires `goto` into your shell rc (idempotent)
+source ~/.zshrc              # or open a new terminal
 ```
 
-Then add this line to your shell config:
+That's it. `brew` pulls in `gum` automatically — no other manual installs.
 
-```sh
-# ~/.zshrc  (or ~/.bashrc)
-[ -f "$(brew --prefix)/share/gotodir/gotodir.sh" ] && \
-  source "$(brew --prefix)/share/gotodir/gotodir.sh"
-```
-
-Reload your shell:
-
-```sh
-source ~/.zshrc   # or open a new terminal
-```
-
-**That's it.** `brew` pulls in `gum` automatically — no other manual installs.
+`gotodir init` detects your shell from `$SHELL` and appends a small managed block to `~/.zshrc` or `~/.bashrc`. Re-run it any time — it's a no-op once installed. To override detection: `GOTODIR_INIT_SHELL=zsh gotodir init`.
 
 ## Quickstart
 
@@ -64,6 +54,7 @@ goto -c api               # jump, then launch `claude`
 | `goto list` | Print all bookmarks as `name<TAB>path` lines. |
 | `goto rm <name>` | Remove a bookmark. |
 | `goto -c [name]` | Same as above, then run `claude` in the destination. |
+| `goto init` | Wire `goto` into your shell rc file (idempotent). |
 | `goto --help` | Show help. |
 
 ### The `-c` flag
@@ -97,13 +88,13 @@ brew update && brew upgrade gotodir
 ```sh
 brew uninstall gotodir
 brew untap JasGH/gotodir
-# remove the `source ...` line from ~/.zshrc
+# remove the `# gotodir-init` block from ~/.zshrc
 # optionally:  rm ~/.goto-projects
 ```
 
 ## Troubleshooting
 
-**`goto: command not found`** — You skipped the `source` step. Add the line from [Install](#install) to your shell config and reload.
+**`goto: command not found`** — You skipped `gotodir init` or didn't reload your shell. Run `gotodir init && source ~/.zshrc`.
 
 **`gotodir: 'gum' not found`** — Run `brew install gum` (or reinstall `gotodir`, which depends on it).
 

@@ -20,6 +20,7 @@ This is the backend for the \`goto\` shell function. You usually
 won't call it directly. See: https://github.com/JasGH/gotodir
 
 Subcommands:
+  init                 Wire the \`goto\` function into your shell rc file.
   pick                 Open arrow-key picker; print chosen path on stdout.
   get  <name>          Print path for <name> on stdout.
   add  <name> [path]   Bookmark <path> (defaults to \$PWD) as <name>.
@@ -27,6 +28,53 @@ Subcommands:
   rm   <name>          Remove a bookmark.
   version              Print version.
 EOF
+}
+
+cmd_init() {
+  shell_name="${GOTODIR_INIT_SHELL:-}"
+  if [ -z "$shell_name" ]; then
+    case "${SHELL:-}" in
+      */zsh)  shell_name=zsh ;;
+      */bash) shell_name=bash ;;
+      *)
+        echo "gotodir: could not auto-detect shell from \$SHELL='${SHELL:-}'." >&2
+        echo "  retry with: GOTODIR_INIT_SHELL=zsh gotodir init   (or 'bash')" >&2
+        return 1 ;;
+    esac
+  fi
+
+  case "$shell_name" in
+    zsh)  rc="${GOTODIR_INIT_RC:-$HOME/.zshrc}" ;;
+    bash) rc="${GOTODIR_INIT_RC:-$HOME/.bashrc}" ;;
+    *) echo "gotodir: unsupported shell '$shell_name' (zsh, bash only)" >&2; return 1 ;;
+  esac
+
+  # Locate the shell-function file relative to this script's bin dir.
+  # We deliberately do NOT resolve symlinks: under brew, $0 lives at
+  # <prefix>/bin/gotodir, and <prefix>/share/gotodir/ survives upgrades.
+  bin_dir="$(cd "$(dirname "$0")" && pwd)"
+  prefix="$(dirname "$bin_dir")"
+  source_file="$prefix/share/gotodir/gotodir.sh"
+
+  if [ ! -f "$source_file" ]; then
+    echo "gotodir: shell function file not found at: $source_file" >&2
+    echo "  (is gotodir installed correctly?)" >&2
+    return 1
+  fi
+
+  touch "$rc"
+  if grep -Fq "# gotodir-init" "$rc"; then
+    echo "gotodir: $rc already initialized — nothing to do."
+    return 0
+  fi
+
+  {
+    printf '\n# gotodir-init (managed; remove this whole block to uninit)\n'
+    printf '[ -f "%s" ] && source "%s"\n' "$source_file" "$source_file"
+  } >> "$rc"
+
+  echo "gotodir: appended init block to $rc"
+  echo "         reload:  source $rc   (or open a new terminal)"
 }
 
 cmd_add() {
@@ -105,6 +153,7 @@ sub="${1:-}"
 [ $# -gt 0 ] && shift || true
 
 case "$sub" in
+  init)                 cmd_init ;;
   add)                  cmd_add  "$@" ;;
   rm|remove)            cmd_rm   "$@" ;;
   list|ls)              cmd_list ;;

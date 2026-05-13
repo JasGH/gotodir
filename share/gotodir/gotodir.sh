@@ -10,7 +10,7 @@ goto() {
   fi
 
   case "${1:-}" in
-    add|rm|remove|list|ls|version|--version)
+    add|rm|remove|list|ls|init|version|--version)
       command gotodir "$@"
       return $?
       ;;
