@@ -1,0 +1,116 @@
+#!/bin/sh
+# gotodir — backend resolver for the `goto` shell function.
+# Stores bookmarks in $GOTODIR_STORE (default: ~/.goto-projects).
+# Prints resolved paths on stdout; status messages go to stderr.
+
+set -eu
+
+STORE="${GOTODIR_STORE:-$HOME/.goto-projects}"
+VERSION="0.1.0"
+
+ensure_store() {
+  [ -f "$STORE" ] || : > "$STORE"
+}
+
+usage() {
+  cat >&2 <<EOF
+gotodir $VERSION — project bookmark resolver
+
+This is the backend for the \`goto\` shell function. You usually
+won't call it directly. See: https://github.com/JasGH/gotodir
+
+Subcommands:
+  pick                 Open arrow-key picker; print chosen path on stdout.
+  get  <name>          Print path for <name> on stdout.
+  add  <name> [path]   Bookmark <path> (defaults to \$PWD) as <name>.
+  list                 Print bookmarks as "<name><TAB><path>" lines.
+  rm   <name>          Remove a bookmark.
+  version              Print version.
+EOF
+}
+
+cmd_add() {
+  name="${1:-}"; dir="${2:-$PWD}"
+  if [ -z "$name" ]; then
+    echo "gotodir: usage: add <name> [path]" >&2; return 2
+  fi
+  case "$name" in *=*) echo "gotodir: name cannot contain '='" >&2; return 2;; esac
+  if [ ! -d "$dir" ]; then
+    echo "gotodir: not a directory: $dir" >&2; return 1
+  fi
+  dir="$(cd "$dir" && pwd)"
+  if grep -q "^${name}=" "$STORE"; then
+    echo "gotodir: '$name' already exists (remove it first: goto rm $name)" >&2
+    return 1
+  fi
+  printf '%s=%s\n' "$name" "$dir" >> "$STORE"
+  echo "added: $name -> $dir" >&2
+}
+
+cmd_rm() {
+  name="${1:-}"
+  if [ -z "$name" ]; then
+    echo "gotodir: usage: rm <name>" >&2; return 2
+  fi
+  if ! grep -q "^${name}=" "$STORE"; then
+    echo "gotodir: '$name' not found" >&2; return 1
+  fi
+  tmp="$(mktemp)"
+  grep -v "^${name}=" "$STORE" > "$tmp" || true
+  mv "$tmp" "$STORE"
+  echo "removed: $name" >&2
+}
+
+cmd_list() {
+  if [ ! -s "$STORE" ]; then
+    echo "no bookmarks yet — add one with: goto add <name> [path]" >&2
+    return 0
+  fi
+  awk 'match($0, /=/) {
+    name = substr($0, 1, RSTART - 1)
+    val  = substr($0, RSTART + 1)
+    print name "\t" val
+  }' "$STORE"
+}
+
+cmd_pick() {
+  if [ ! -s "$STORE" ]; then
+    echo "no bookmarks yet — add one with: goto add <name> [path]" >&2
+    return 1
+  fi
+  if ! command -v gum >/dev/null 2>&1; then
+    echo "gotodir: 'gum' not found in PATH (should be a brew dep)" >&2
+    return 1
+  fi
+  pick="$(cut -d'=' -f1 "$STORE" | gum choose --header 'Select project:' --cursor '◉ ')" || return 1
+  [ -n "$pick" ] || return 1
+  cmd_get "$pick"
+}
+
+cmd_get() {
+  name="${1:-}"
+  if [ -z "$name" ]; then
+    echo "gotodir: usage: get <name>" >&2; return 2
+  fi
+  line="$(grep "^${name}=" "$STORE" | head -n 1)" || true
+  if [ -z "$line" ]; then
+    echo "gotodir: '$name' not found" >&2; return 1
+  fi
+  printf '%s\n' "${line#*=}"
+}
+
+ensure_store
+
+sub="${1:-}"
+[ $# -gt 0 ] && shift || true
+
+case "$sub" in
+  add)                  cmd_add  "$@" ;;
+  rm|remove)            cmd_rm   "$@" ;;
+  list|ls)              cmd_list ;;
+  pick)                 cmd_pick ;;
+  get)                  cmd_get  "$@" ;;
+  version|--version|-v) echo "$VERSION" ;;
+  ""|-h|--help|help)    usage ;;
+  *) echo "gotodir: unknown subcommand: $sub" >&2; usage; exit 2 ;;
+esac
