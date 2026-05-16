@@ -109,6 +109,8 @@ Issues and PRs welcome at [github.com/JasGH/gotodir](https://github.com/JasGH/go
 - `bin/gotodir` — the resolver (POSIX `sh`)
 - `share/gotodir/gotodir.sh` — the `goto` shell function (bash/zsh)
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the local dev loop (no `brew install` needed), test recipes, and the release workflow.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
